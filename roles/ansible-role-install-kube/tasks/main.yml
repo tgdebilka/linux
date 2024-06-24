@@ -1,0 +1,135 @@
+---
+# tasks file for kube_install
+- name: Update Packages
+  apt: 
+    update_cache: yes
+    force_apt_get: yes
+    allow_unauthenticated: yes
+  become: yes
+  tags:
+    - update-packages
+
+- name: Turn off swap
+  shell:
+    "swapoff -a"
+  tags:
+    - swapoff
+  become: yes
+
+- name: Replace fstab 
+  copy:
+    src: fstab
+    dest: /etc/fstab
+    backup: yes
+    mode: 0640
+  tags:
+    - swapoff
+
+- name: Replace sysctl.conf 
+  copy:
+    src: sysctl.conf
+    dest: /etc/sysctl.conf
+    backup: yes
+    mode: 0640
+  tags:
+    - ip-forward
+
+- name: Save changes to sysctl
+  shell:
+    "sysctl -p"
+  tags:
+    - ip-forward
+
+- name: Install docker deps
+  package:
+    name: "{{ install_dockerdeps }}" 
+    state: present
+  become: yes
+  tags:
+    - install-docker
+
+- name: add docker GPG key
+  shell:
+    "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
+
+- name: add Docker repo
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+  become: yes
+  tags:
+    - install-docker
+
+- name: Install docker
+  package:
+    name: "{{ install_docker }}" 
+    state: present
+  become: yes
+  tags:
+    - install-docker
+
+- name: Check Docker version
+  shell: "docker --version"
+  register: command_output
+  tags:
+    - install-docker
+
+- debug:
+    var: command_output.stdout_lines
+  tags:
+    - install-docker
+
+- name: Add kubernetes GPG key
+  shell: "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add"
+  tags:
+    - install-kubernetes
+
+- name: Add kuberenetes repo
+  apt_repository:
+    repo: "deb http://apt.kubernetes.io/ kubernetes-xenial main" 
+    state: present
+  become: yes
+  tags:
+    - install-kubernetes
+
+- name: Update packages after adding kube repo
+  apt: 
+    update_cache: yes
+    force_apt_get: yes
+    allow_unauthenticated: yes
+  become: yes
+  tags:
+    - install-kubernetes
+
+- name: Install kubelet kubeadm kubectl
+  package:
+    name: "{{ install_kube }}" 
+    state: present
+  become: yes
+  tags:
+    - install-kubernetes
+
+- name: Create daemon file 
+  copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    backup: yes
+    mode: 0640
+  tags:
+    - install-kubernetes
+
+- name: daemon-reload
+  systemd:
+    daemon_reload: yes
+  tags:
+    - restart-services
+
+- name: restart and enable docker 
+  systemd:
+    name: docker
+    state: restarted
+    enabled: yes
+  tags:
+    - restart-services
+
+

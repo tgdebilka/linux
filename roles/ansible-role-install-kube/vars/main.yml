@@ -1,0 +1,13 @@
+---
+# vars file for kube_install
+install_dockerdeps:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - software-properties-common
+install_docker:
+  - docker-ce
+install_kube:
+  - kubelet
+  - kubeadm
+  - kubectl
